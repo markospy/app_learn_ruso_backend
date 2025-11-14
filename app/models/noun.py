@@ -7,6 +7,16 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
+class NounGroupNoun(SQLModel, table=True):
+    """Many-to-many relationship between noun groups and nouns."""
+
+    __tablename__ = "noun_group_nouns"
+
+    id_group: int = Field(foreign_key="noun_groups.id", primary_key=True)
+    id_noun: int = Field(foreign_key="nouns.id", primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
 class Noun(SQLModel, table=True):
     """Noun model for Russian nouns."""
 
@@ -21,7 +31,9 @@ class Noun(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
-    noun_groups: List["NounGroupNoun"] = Relationship(back_populates="noun", link_model="NounGroupNoun", cascade_delete=False)
+    noun_groups: List["NounGroup"] = Relationship(
+        back_populates="nouns", link_model=NounGroupNoun
+    )
 
 
 class NounGroup(SQLModel, table=True):
@@ -37,15 +49,7 @@ class NounGroup(SQLModel, table=True):
 
     # Relationships
     user: "User" = Relationship(back_populates="noun_groups")
-    nouns: List["NounGroupNoun"] = Relationship(back_populates="group", cascade_delete=True, link_model="NounGroupNoun")
-
-
-class NounGroupNoun(SQLModel, table=True):
-    """Many-to-many relationship between noun groups and nouns."""
-
-    __tablename__ = "noun_group_nouns"
-
-    id_group: int = Field(foreign_key="noun_groups.id", ondelete="CASCADE", primary_key=True)
-    id_noun: int = Field(foreign_key="nouns.id", ondelete="CASCADE", primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.now)
+    nouns: List["Noun"] = Relationship(
+        back_populates="noun_groups", link_model=NounGroupNoun
+    )
 
