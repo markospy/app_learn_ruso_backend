@@ -17,11 +17,11 @@ class Noun(SQLModel, table=True):
     singular: str = Field(max_length=100)
     plural: str = Field(max_length=100)
     gender: str = Field(max_length=10)  # masculine, feminine, neuter
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
-    noun_groups: List["NounGroupNoun"] = Relationship(back_populates="noun")
+    noun_groups: List["NounGroupNoun"] = Relationship(back_populates="noun", link_model="NounGroupNoun", cascade_delete=False)
 
 
 class NounGroup(SQLModel, table=True):
@@ -31,13 +31,13 @@ class NounGroup(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name_group: str = Field(max_length=100)
-    id_user: int = Field(foreign_key="users.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    id_user: int = Field(foreign_key="users.id", ondelete="CASCADE")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     user: "User" = Relationship(back_populates="noun_groups")
-    nouns: List["NounGroupNoun"] = Relationship(back_populates="group")
+    nouns: List["NounGroupNoun"] = Relationship(back_populates="group", cascade_delete=True, link_model="NounGroupNoun")
 
 
 class NounGroupNoun(SQLModel, table=True):
@@ -45,12 +45,7 @@ class NounGroupNoun(SQLModel, table=True):
 
     __tablename__ = "noun_group_nouns"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    id_group: int = Field(foreign_key="noun_groups.id", ondelete="CASCADE")
-    id_noun: int = Field(foreign_key="nouns.id", ondelete="CASCADE")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    # Relationships
-    group: NounGroup = Relationship(back_populates="nouns")
-    noun: Noun = Relationship(back_populates="noun_groups")
+    id_group: int = Field(foreign_key="noun_groups.id", ondelete="CASCADE", primary_key=True)
+    id_noun: int = Field(foreign_key="nouns.id", ondelete="CASCADE", primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
 

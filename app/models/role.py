@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
-
+if TYPE_CHECKING:
+    from .user import User
 class Role(SQLModel, table=True):
     """Role model for user roles (admin, teacher, student)."""
 
@@ -12,5 +13,5 @@ class Role(SQLModel, table=True):
     name: str = Field(max_length=50, unique=True, index=True)
 
     # Relationships
-    users: List["User"] = Relationship(back_populates="role")
+    users: List["User"] = Relationship(back_populates="role", cascade_delete=False)
 

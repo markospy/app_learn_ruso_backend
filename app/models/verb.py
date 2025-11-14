@@ -43,11 +43,11 @@ class Verb(SQLModel, table=True):
     imperative_singular: str = Field(max_length=50)
     imperative_plural: str = Field(max_length=50)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
-    verb_groups: List["VerbGroupVerb"] = Relationship(back_populates="verb")
+    verb_groups: List["VerbGroupVerb"] = Relationship(back_populates="verb", cascade_delete=False, link_model="VerbGroupVerb")
 
 
 class VerbGroup(SQLModel, table=True):
@@ -57,13 +57,13 @@ class VerbGroup(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name_group: str = Field(max_length=100)
-    id_user: int = Field(foreign_key="users.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    id_user: int = Field(foreign_key="users.id", ondelete="CASCADE")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     user: "User" = Relationship(back_populates="verb_groups")
-    verbs: List["VerbGroupVerb"] = Relationship(back_populates="group")
+    verbs: List["VerbGroupVerb"] = Relationship(back_populates="group", cascade_delete=False, link_model="VerbGroupVerb")
 
 
 class VerbGroupVerb(SQLModel, table=True):
@@ -71,12 +71,7 @@ class VerbGroupVerb(SQLModel, table=True):
 
     __tablename__ = "verb_group_verbs"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    id_group: int = Field(foreign_key="verb_groups.id", ondelete="CASCADE")
-    id_verb: int = Field(foreign_key="verbs.id", ondelete="CASCADE")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    # Relationships
-    group: VerbGroup = Relationship(back_populates="verbs")
-    verb: Verb = Relationship(back_populates="verb_groups")
+    id_group: int = Field(foreign_key="verb_groups.id", ondelete="CASCADE", primary_key=True)
+    id_verb: int = Field(foreign_key="verbs.id", ondelete="CASCADE", primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
 
