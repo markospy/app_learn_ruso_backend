@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Index, Relationship, SQLModel
 
 from app.schemas.traslation import Translation
 
@@ -62,6 +62,11 @@ class Verb(SQLModel, table=True):
     # Relationships
     verb_groups: List["VerbGroup"] = Relationship(
         back_populates="verbs", link_model=VerbGroupVerb
+    )
+    # Indexes
+    __table_args__ = (
+        Index("idx_verb_translations", "translations"),
+        Index("idx_verb_infinitive", "infinitive", unique=True),
     )
 
 

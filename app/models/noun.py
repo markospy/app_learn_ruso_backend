@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Index, Relationship, SQLModel
 
 from app.schemas.traslation import Translation
 
@@ -36,6 +36,11 @@ class Noun(SQLModel, table=True):
     # Relationships
     noun_groups: List["NounGroup"] = Relationship(
         back_populates="nouns", link_model=NounGroupNoun
+    )
+    # Indexes
+    __table_args__ = (
+        Index("idx_noun_translations", "translations"),
+        Index("idx_noun_noun", "noun", unique=True),
     )
 
 
