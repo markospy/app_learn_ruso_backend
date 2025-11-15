@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from app.models.noun import Noun, NounGroup, NounGroupNoun
 from app.schemas.noun import (NounCreate, NounGroupCreate, NounGroupUpdate,
                               NounUpdate)
+from app.schemas.traslation import Translation
 
 
 def get_noun_by_id(session: Session, noun_id: int) -> Optional[Noun]:
@@ -19,6 +20,7 @@ def get_nouns(
     limit: int = 100,
     noun: Optional[str] = None,
     gender: Optional[str] = None,
+    translation: Optional[Translation] = None,
 ) -> List[Noun]:
     """Get nouns with optional filters."""
     statement = select(Noun)
@@ -27,7 +29,9 @@ def get_nouns(
         statement = statement.where(Noun.noun.like(f"%{noun}%"))
     if gender:
         statement = statement.where(Noun.gender == gender)
-
+    if translation:
+        translation_dict = {"language": translation.language, "translation": translation.translation}
+        statement = statement.where(Noun.translations.any_(translation_dict))
     statement = statement.offset(skip).limit(limit)
     return list(session.exec(statement).all())
 

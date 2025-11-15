@@ -4,10 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
 from app.api.deps import require_admin_or_teacher
-from app.crud.verb import create_verb, delete_verb, get_verb_by_id, get_verbs, update_verb
+from app.crud.verb import (create_verb, delete_verb, get_verb_by_id, get_verbs,
+                           update_verb)
 from app.database import get_session
 from app.models.user import User
-from app.schemas.verb import VerbCreate, VerbResponse, VerbUpdate, VerbWithConjugations
+from app.schemas.traslation import Translation
+from app.schemas.verb import (VerbCreate, VerbResponse, VerbUpdate,
+                              VerbWithConjugations)
 
 router = APIRouter(prefix="/api/verbs", tags=["verbs"])
 
@@ -18,6 +21,7 @@ def list_verbs(
     limit: int = Query(100, ge=1, le=100),
     infinitive: Optional[str] = Query(None),
     conjugation_type: Optional[int] = Query(None, alias="conjugationType"),
+    translation: Optional[Translation] = Query(None),
     session: Session = Depends(get_session),
 ) -> List[VerbResponse]:
     """List verbs with optional filters."""
@@ -27,6 +31,7 @@ def list_verbs(
         limit=limit,
         infinitive=infinitive,
         conjugation_type=conjugation_type,
+        translation=translation,
     )
     return [VerbResponse.model_validate(verb) for verb in verbs]
 

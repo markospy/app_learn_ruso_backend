@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.traslation import Translation
+
 
 class VerbConjugations(BaseModel):
     """Schema for verb conjugations grouped by tense."""
@@ -17,6 +19,7 @@ class VerbBase(BaseModel):
     infinitive: str = Field(max_length=100)
     conjugationType: int = Field(ge=1, le=2)
     root: str = Field(max_length=100)
+    translations: list[Translation] = Field(default=[])
     present_ya: str = Field(max_length=50)
     present_ty: str = Field(max_length=50)
     present_on_ona: str = Field(max_length=50)
@@ -47,6 +50,7 @@ class VerbUpdate(BaseModel):
     infinitive: Optional[str] = Field(default=None, max_length=100)
     conjugationType: Optional[int] = Field(default=None, ge=1, le=2)
     root: Optional[str] = Field(default=None, max_length=100)
+    translations: Optional[list[Translation]] = Field(default=None)
     present_ya: Optional[str] = Field(default=None, max_length=50)
     present_ty: Optional[str] = Field(default=None, max_length=50)
     present_on_ona: Optional[str] = Field(default=None, max_length=50)

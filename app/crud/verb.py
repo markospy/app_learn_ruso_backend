@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlmodel import Session, select
 
 from app.models.verb import Verb, VerbGroup, VerbGroupVerb
+from app.schemas.traslation import Translation
 from app.schemas.verb import (VerbCreate, VerbGroupCreate, VerbGroupUpdate,
                               VerbUpdate)
 
@@ -19,6 +20,7 @@ def get_verbs(
     limit: int = 100,
     infinitive: Optional[str] = None,
     conjugation_type: Optional[int] = None,
+    translation: Optional[Translation] = None,
 ) -> List[Verb]:
     """Get verbs with optional filters."""
     statement = select(Verb)
@@ -27,7 +29,9 @@ def get_verbs(
         statement = statement.where(Verb.infinitive.like(f"%{infinitive}%"))
     if conjugation_type:
         statement = statement.where(Verb.conjugationType == conjugation_type)
-
+    if translation:
+        translation_dict = {"language": translation.language, "translation": translation.translation}
+        statement = statement.where(Verb.translations.any_(translation_dict))
     statement = statement.offset(skip).limit(limit)
     return list(session.exec(statement).all())
 

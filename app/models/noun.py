@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.schemas.traslation import Translation
+
 if TYPE_CHECKING:
     from app.models.user import User
 
@@ -24,6 +26,7 @@ class Noun(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     noun: str = Field(max_length=100)
+    translations: list[Translation] = Field(default=[])
     singular: str = Field(max_length=100)
     plural: str = Field(max_length=100)
     gender: str = Field(max_length=10)  # masculine, feminine, neuter

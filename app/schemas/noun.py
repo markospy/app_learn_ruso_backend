@@ -3,10 +3,13 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.traslation import Translation
+
 
 class NounBase(BaseModel):
     """Base noun schema."""
     noun: str = Field(max_length=100)
+    translations: list[Translation] = Field(default=[])
     singular: str = Field(max_length=100)
     plural: str = Field(max_length=100)
     gender: str = Field(max_length=10)  # masculine, feminine, neuter
@@ -20,6 +23,7 @@ class NounCreate(NounBase):
 class NounUpdate(BaseModel):
     """Schema for updating a noun."""
     noun: Optional[str] = Field(default=None, max_length=100)
+    translations: Optional[list[Translation]] = Field(default=None)
     singular: Optional[str] = Field(default=None, max_length=100)
     plural: Optional[str] = Field(default=None, max_length=100)
     gender: Optional[str] = Field(default=None, max_length=10)

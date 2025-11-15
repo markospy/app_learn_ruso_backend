@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.schemas.traslation import Translation
+
 if TYPE_CHECKING:
     from app.models.user import User
 
@@ -24,6 +26,7 @@ class Verb(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     infinitive: str = Field(max_length=100, unique=True, index=True)
+    translations: list[Translation] = Field(default=[])
     conjugationType: int = Field()  # 1 or 2
     root: str = Field(max_length=100)
 
