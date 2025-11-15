@@ -1,9 +1,8 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, Index, Relationship, SQLModel
-
-from app.schemas.traslation import Translation
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -26,7 +25,9 @@ class Verb(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     infinitive: str = Field(max_length=100, unique=True, index=True)
-    translations: list[Translation] = Field(default=[])
+    translations: list[dict[str, str]] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )
     conjugationType: int = Field()  # 1 or 2
     root: str = Field(max_length=100)
 

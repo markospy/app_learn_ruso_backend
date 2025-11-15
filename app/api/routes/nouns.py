@@ -20,10 +20,17 @@ def list_nouns(
     limit: int = Query(100, ge=1, le=100),
     noun: Optional[str] = Query(None),
     gender: Optional[str] = Query(None),
-    translation: Optional[Translation] = Query(None),
+    translation_language: Optional[str] = Query(None, alias="translation.language"),
+    translation_text: Optional[str] = Query(None, alias="translation.translation"),
     session: Session = Depends(get_session),
 ) -> List[NounResponse]:
     """List nouns with optional filters."""
+    translation = None
+    if translation_language and translation_text:
+        translation = Translation(
+            language=translation_language,
+            translation=translation_text
+        )
     nouns = get_nouns(
         session,
         skip=skip,

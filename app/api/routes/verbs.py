@@ -21,10 +21,17 @@ def list_verbs(
     limit: int = Query(100, ge=1, le=100),
     infinitive: Optional[str] = Query(None),
     conjugation_type: Optional[int] = Query(None, alias="conjugationType"),
-    translation: Optional[Translation] = Query(None),
+    translation_language: Optional[str] = Query(None, alias="translation.language"),
+    translation_text: Optional[str] = Query(None, alias="translation.translation"),
     session: Session = Depends(get_session),
 ) -> List[VerbResponse]:
     """List verbs with optional filters."""
+    translation = None
+    if translation_language and translation_text:
+        translation = Translation(
+            language=translation_language,
+            translation=translation_text
+        )
     verbs = get_verbs(
         session,
         skip=skip,

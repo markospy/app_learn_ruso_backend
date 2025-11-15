@@ -41,10 +41,18 @@ class User(SQLModel, table=True):
     verb_groups: List["VerbGroup"] = Relationship(back_populates="user")
     noun_groups: List["NounGroup"] = Relationship(back_populates="user")
     students: List["User"] = Relationship(
-        back_populates="teachers", link_model=LinkStudentTeacher
+        back_populates="teachers",
+        link_model=LinkStudentTeacher,
+        sa_relationship_kwargs={
+            "foreign_keys": "LinkStudentTeacher.id_teacher",
+        },
     )
     teachers: List["User"] = Relationship(
-        back_populates="students", link_model=LinkStudentTeacher
+        back_populates="students",
+        link_model=LinkStudentTeacher,
+        sa_relationship_kwargs={
+            "foreign_keys": "LinkStudentTeacher.id_student",
+        },
     )
 
 
