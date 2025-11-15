@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from sqlmodel import Session, select
 
@@ -7,6 +7,22 @@ from app.models.verb import Verb, VerbGroup, VerbGroupVerb
 from app.schemas.traslation import Translation
 from app.schemas.verb import (VerbCreate, VerbGroupCreate, VerbGroupUpdate,
                               VerbUpdate)
+
+
+def _convert_translation_to_db_format(translation: Any) -> dict[str, str]:
+    """Convert translation to database format: {"es": "amar"}."""
+    if hasattr(translation, "to_dict"):
+        return translation.to_dict()  # type: ignore
+    if isinstance(translation, dict):
+        # If it's already in new format {"es": "amar"}
+        if len(translation) == 1:
+            key = list(translation.keys())[0]
+            if key not in ("language", "translation"):
+                return translation  # type: ignore
+        # If it's in old format {"language": "es", "translation": "amar"}
+        if "language" in translation and "translation" in translation:
+            return {translation["language"]: translation["translation"]}  # type: ignore
+    return translation  # type: ignore
 
 
 def get_verb_by_id(session: Session, verb_id: int) -> Optional[Verb]:
@@ -34,10 +50,15 @@ def get_verbs(
 
     # Filter by translation if provided (after fetching due to JSON complexity)
     if translation:
-        translation_dict = {"language": translation.language, "translation": translation.translation}
+        # Support both old format {"language": "es", "translation": "amar"} and new format {"es": "amar"}
+        translation_dict_new = {translation.language: translation.translation}
+        translation_dict_old = {"language": translation.language, "translation": translation.translation}
         verbs = [
             verb for verb in verbs
-            if translation_dict in (verb.translations or [])
+            if verb.translations and (
+                translation_dict_new in (verb.translations or []) or
+                translation_dict_old in (verb.translations or [])
+            )
         ]
 
     return verbs
@@ -46,10 +67,10 @@ def get_verbs(
 def create_verb(session: Session, verb_create: VerbCreate) -> Verb:
     """Create a new verb."""
     data = verb_create.model_dump()
-    # Convert Translation objects to dict format for database storage
+    # Convert Translation objects to dict format for database storage: {"es": "amar"}
     if "translations" in data and data["translations"]:
         data["translations"] = [
-            t if isinstance(t, dict) else {"language": t.language, "translation": t.translation}
+            _convert_translation_to_db_format(t)
             for t in data["translations"]
         ]
     verb = Verb(**data)
@@ -62,10 +83,10 @@ def create_verb(session: Session, verb_create: VerbCreate) -> Verb:
 def update_verb(session: Session, verb: Verb, verb_update: VerbUpdate) -> Verb:
     """Update a verb."""
     update_data = verb_update.model_dump(exclude_unset=True)
-    # Convert Translation objects to dict format for database storage
+    # Convert Translation objects to dict format for database storage: {"es": "amar"}
     if "translations" in update_data and update_data["translations"]:
         update_data["translations"] = [
-            t if isinstance(t, dict) else {"language": t.language, "translation": t.translation}
+            _convert_translation_to_db_format(t)
             for t in update_data["translations"]
         ]
     for field, value in update_data.items():

@@ -42,5 +42,5 @@ class Translation(BaseModel):
         return f"Translation(language={self.language}, translation={self.translation})"
 
     def to_dict(self) -> dict[str, str]:
-        """Convert to dictionary format for database storage."""
-        return {"language": self.language, "translation": self.translation}
+        """Convert to dictionary format for database storage: {"es": "amar"}."""
+        return {self.language: self.translation}
