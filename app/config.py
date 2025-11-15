@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings
 from typing import List
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440  # 24 hours
 
     # CORS - accepts comma-separated string and converts to list
-    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:8080"
+    cors_origins: str = "http://localhost:3001,http://localhost:3000"
 
     # App
     app_name: str = "Russian Learning API"
@@ -35,4 +36,5 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
 

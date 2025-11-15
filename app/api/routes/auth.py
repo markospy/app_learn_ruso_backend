@@ -3,14 +3,14 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.api.deps import get_current_active_user
+from app.api.deps import get_current_active_user, get_role_of_current_user
 from app.config import settings
 from app.core.security import create_access_token, verify_password
 from app.crud.user import create_user, get_user_by_email, get_user_by_username
 from app.database import get_session
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, Token
-from app.schemas.user import UserPublic
+from app.schemas.user import UserCreate, UserPublic
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -34,9 +34,9 @@ def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-
     # Create user
-    user = create_user(session, register_data)
+    user_create = UserCreate(**register_data.model_dump())
+    user = create_user(session, user_create)
 
     # Create access token
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
@@ -45,10 +45,14 @@ def register(
         expires_delta=access_token_expires
     )
 
+    role = get_role_of_current_user(user)
+    user_dict = user.model_dump()
+    user_dict["role"] = role
+    user_public = UserPublic.model_validate(user_dict)
     return Token(
         access_token=access_token,
         token_type="bearer",
-        user=UserPublic.model_validate(user)
+        user=user_public
     )
 
 
@@ -79,11 +83,14 @@ def login(
         data={"sub": user.username},
         expires_delta=access_token_expires
     )
-
+    role = get_role_of_current_user(user)
+    user_dict = user.model_dump()
+    user_dict["role"] = role
+    user_public = UserPublic.model_validate(user_dict)
     return Token(
         access_token=access_token,
         token_type="bearer",
-        user=UserPublic.model_validate(user)
+        user=user_public
     )
 
 
@@ -92,5 +99,8 @@ def get_current_user_info(
     current_user: User = Depends(get_current_active_user),
 ) -> UserPublic:
     """Get current authenticated user information."""
-    return UserPublic.model_validate(current_user)
+    role = get_role_of_current_user(current_user)
+    user_dict = current_user.model_dump()
+    user_dict["role"] = role
+    return UserPublic.model_validate(user_dict)
 

@@ -29,16 +29,30 @@ def get_verbs(
         statement = statement.where(Verb.infinitive.like(f"%{infinitive}%"))
     if conjugation_type:
         statement = statement.where(Verb.conjugationType == conjugation_type)
+    statement = statement.offset(skip).limit(limit)
+    verbs = list(session.exec(statement).all())
+
+    # Filter by translation if provided (after fetching due to JSON complexity)
     if translation:
         translation_dict = {"language": translation.language, "translation": translation.translation}
-        statement = statement.where(Verb.translations.any_(translation_dict))
-    statement = statement.offset(skip).limit(limit)
-    return list(session.exec(statement).all())
+        verbs = [
+            verb for verb in verbs
+            if translation_dict in (verb.translations or [])
+        ]
+
+    return verbs
 
 
 def create_verb(session: Session, verb_create: VerbCreate) -> Verb:
     """Create a new verb."""
-    verb = Verb(**verb_create.model_dump())
+    data = verb_create.model_dump()
+    # Convert Translation objects to dict format for database storage
+    if "translations" in data and data["translations"]:
+        data["translations"] = [
+            t if isinstance(t, dict) else {"language": t.language, "translation": t.translation}
+            for t in data["translations"]
+        ]
+    verb = Verb(**data)
     session.add(verb)
     session.commit()
     session.refresh(verb)
@@ -48,6 +62,12 @@ def create_verb(session: Session, verb_create: VerbCreate) -> Verb:
 def update_verb(session: Session, verb: Verb, verb_update: VerbUpdate) -> Verb:
     """Update a verb."""
     update_data = verb_update.model_dump(exclude_unset=True)
+    # Convert Translation objects to dict format for database storage
+    if "translations" in update_data and update_data["translations"]:
+        update_data["translations"] = [
+            t if isinstance(t, dict) else {"language": t.language, "translation": t.translation}
+            for t in update_data["translations"]
+        ]
     for field, value in update_data.items():
         setattr(verb, field, value)
     verb.updated_at = datetime.now()

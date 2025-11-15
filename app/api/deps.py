@@ -53,6 +53,13 @@ def get_current_active_user(
         )
     return current_user
 
+def get_role_of_current_user(current_user: User):
+    if not current_user.role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User role not found"
+        )
+    return current_user.role.name
 
 def require_role(required_role: str):
     """Dependency factory to require a specific role."""

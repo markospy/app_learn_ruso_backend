@@ -30,15 +30,33 @@ def get_nouns(
     if gender:
         statement = statement.where(Noun.gender == gender)
     if translation:
-        translation_dict = {"language": translation.language, "translation": translation.translation}
-        statement = statement.where(Noun.translations.any_(translation_dict))
+        # Filter in Python after fetching (SQLite JSON search is complex)
+        # We'll filter after getting results
+        pass
     statement = statement.offset(skip).limit(limit)
-    return list(session.exec(statement).all())
+    nouns = list(session.exec(statement).all())
+
+    # Filter by translation if provided (after fetching due to JSON complexity)
+    if translation:
+        translation_dict = {"language": translation.language, "translation": translation.translation}
+        nouns = [
+            noun for noun in nouns
+            if translation_dict in (noun.translations or [])
+        ]
+
+    return nouns
 
 
 def create_noun(session: Session, noun_create: NounCreate) -> Noun:
     """Create a new noun."""
-    noun = Noun(**noun_create.model_dump())
+    data = noun_create.model_dump()
+    # Convert Translation objects to dict format for database storage
+    if "translations" in data and data["translations"]:
+        data["translations"] = [
+            t if isinstance(t, dict) else {"language": t.language, "translation": t.translation}
+            for t in data["translations"]
+        ]
+    noun = Noun(**data)
     session.add(noun)
     session.commit()
     session.refresh(noun)
@@ -48,6 +66,12 @@ def create_noun(session: Session, noun_create: NounCreate) -> Noun:
 def update_noun(session: Session, noun: Noun, noun_update: NounUpdate) -> Noun:
     """Update a noun."""
     update_data = noun_update.model_dump(exclude_unset=True)
+    # Convert Translation objects to dict format for database storage
+    if "translations" in update_data and update_data["translations"]:
+        update_data["translations"] = [
+            t if isinstance(t, dict) else {"language": t.language, "translation": t.translation}
+            for t in update_data["translations"]
+        ]
     for field, value in update_data.items():
         setattr(noun, field, value)
     noun.updated_at = datetime.now()
