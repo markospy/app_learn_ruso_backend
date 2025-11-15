@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, noun_groups, nouns, students, users, verb_groups, verbs
+from app.api.routes import (auth, noun_groups, nouns, roles, students, users,
+                            verb_groups, verbs)
 from app.config import settings
 from app.database import init_db
 
@@ -40,6 +41,7 @@ app.include_router(verbs.router)
 app.include_router(verb_groups.router)
 app.include_router(nouns.router)
 app.include_router(noun_groups.router)
+app.include_router(roles.router)
 
 
 @app.get("/")
