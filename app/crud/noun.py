@@ -4,7 +4,8 @@ from typing import List, Optional
 from sqlmodel import Session, select
 
 from app.models.noun import Noun, NounGroup, NounGroupNoun
-from app.schemas.noun import NounCreate, NounGroupCreate, NounGroupUpdate, NounUpdate
+from app.schemas.noun import (NounCreate, NounGroupCreate, NounGroupUpdate,
+                              NounUpdate)
 
 
 def get_noun_by_id(session: Session, noun_id: int) -> Optional[Noun]:
@@ -16,14 +17,14 @@ def get_nouns(
     session: Session,
     skip: int = 0,
     limit: int = 100,
-    sustantivo: Optional[str] = None,
+    noun: Optional[str] = None,
     gender: Optional[str] = None,
 ) -> List[Noun]:
     """Get nouns with optional filters."""
     statement = select(Noun)
 
-    if sustantivo:
-        statement = statement.where(Noun.sustantivo.like(f"%{sustantivo}%"))
+    if noun:
+        statement = statement.where(Noun.noun.like(f"%{noun}%"))
     if gender:
         statement = statement.where(Noun.gender == gender)
 
@@ -45,7 +46,7 @@ def update_noun(session: Session, noun: Noun, noun_update: NounUpdate) -> Noun:
     update_data = noun_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(noun, field, value)
-    noun.updated_at = datetime.utcnow()
+    noun.updated_at = datetime.now()
     session.add(noun)
     session.commit()
     session.refresh(noun)
@@ -86,7 +87,7 @@ def update_noun_group(session: Session, group: NounGroup, group_update: NounGrou
     update_data = group_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(group, field, value)
-    group.updated_at = datetime.utcnow()
+    group.updated_at = datetime.now()
     session.add(group)
     session.commit()
     session.refresh(group)

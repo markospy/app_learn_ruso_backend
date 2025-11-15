@@ -4,7 +4,8 @@ from typing import List, Optional
 from sqlmodel import Session, select
 
 from app.models.verb import Verb, VerbGroup, VerbGroupVerb
-from app.schemas.verb import VerbCreate, VerbGroupCreate, VerbGroupUpdate, VerbUpdate
+from app.schemas.verb import (VerbCreate, VerbGroupCreate, VerbGroupUpdate,
+                              VerbUpdate)
 
 
 def get_verb_by_id(session: Session, verb_id: int) -> Optional[Verb]:
@@ -45,7 +46,7 @@ def update_verb(session: Session, verb: Verb, verb_update: VerbUpdate) -> Verb:
     update_data = verb_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(verb, field, value)
-    verb.updated_at = datetime.utcnow()
+    verb.updated_at = datetime.now()
     session.add(verb)
     session.commit()
     session.refresh(verb)
@@ -86,7 +87,7 @@ def update_verb_group(session: Session, group: VerbGroup, group_update: VerbGrou
     update_data = group_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(group, field, value)
-    group.updated_at = datetime.utcnow()
+    group.updated_at = datetime.now()
     session.add(group)
     session.commit()
     session.refresh(group)

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class NounBase(BaseModel):
     """Base noun schema."""
-    sustantivo: str = Field(max_length=100)
+    noun: str = Field(max_length=100)
     singular: str = Field(max_length=100)
     plural: str = Field(max_length=100)
     gender: str = Field(max_length=10)  # masculine, feminine, neuter
@@ -19,7 +19,7 @@ class NounCreate(NounBase):
 
 class NounUpdate(BaseModel):
     """Schema for updating a noun."""
-    sustantivo: Optional[str] = Field(default=None, max_length=100)
+    noun: Optional[str] = Field(default=None, max_length=100)
     singular: Optional[str] = Field(default=None, max_length=100)
     plural: Optional[str] = Field(default=None, max_length=100)
     gender: Optional[str] = Field(default=None, max_length=10)

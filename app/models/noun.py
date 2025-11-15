@@ -23,7 +23,7 @@ class Noun(SQLModel, table=True):
     __tablename__ = "nouns"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    sustantivo: str = Field(max_length=100)
+    noun: str = Field(max_length=100)
     singular: str = Field(max_length=100)
     plural: str = Field(max_length=100)
     gender: str = Field(max_length=10)  # masculine, feminine, neuter

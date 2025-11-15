@@ -10,6 +10,13 @@ from app.schemas.user import UserPublic
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 
+def check_is_teacher(user):
+    if not user.role or user.role.name != "teacher":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Requires teacher role"
+        )
+    return True
 
 @router.get("", response_model=List[UserPublic])
 def list_students(
@@ -17,11 +24,7 @@ def list_students(
     session: Session = Depends(get_session),
 ) -> List[UserPublic]:
     """List students linked to the current teacher."""
-    if not current_user.role or current_user.role.name != "teacher":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requires teacher role"
-        )
+    check_is_teacher(current_user)
 
     statement = select(LinkStudentTeacher).where(
         LinkStudentTeacher.id_teacher == current_user.id
@@ -44,11 +47,7 @@ def link_student(
     session: Session = Depends(get_session),
 ) -> UserPublic:
     """Link a student to the current teacher."""
-    if not current_user.role or current_user.role.name != "teacher":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requires teacher role"
-        )
+    check_is_teacher(current_user)
 
     student = session.get(User, student_id)
     if not student:
@@ -94,11 +93,7 @@ def unlink_student(
     session: Session = Depends(get_session),
 ) -> None:
     """Unlink a student from the current teacher."""
-    if not current_user.role or current_user.role.name != "teacher":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requires teacher role"
-        )
+    check_is_teacher(current_user)
 
     statement = select(LinkStudentTeacher).where(
         LinkStudentTeacher.id_student == student_id,
@@ -123,11 +118,7 @@ def get_student_progress(
     session: Session = Depends(get_session),
 ) -> dict:
     """Get student progress (teacher only)."""
-    if not current_user.role or current_user.role.name != "teacher":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requires teacher role"
-        )
+    check_is_teacher(current_user)
 
     # Verify link exists
     statement = select(LinkStudentTeacher).where(
