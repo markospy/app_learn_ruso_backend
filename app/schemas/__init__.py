@@ -1,4 +1,4 @@
-from app.schemas.auth import LoginRequest, RegisterRequest, Token, TokenData
+from app.schemas.auth import RegisterRequest, Token, TokenData
 from app.schemas.noun import (NounCreate, NounGroupCreate, NounGroupResponse,
                               NounGroupUpdate, NounResponse, NounUpdate)
 from app.schemas.user import UserCreate, UserPublic, UserResponse, UserUpdate
@@ -12,7 +12,6 @@ __all__ = [
     "UserPublic",
     "Token",
     "TokenData",
-    "LoginRequest",
     "RegisterRequest",
     "VerbCreate",
     "VerbUpdate",

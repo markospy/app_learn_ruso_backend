@@ -5,12 +5,6 @@ from pydantic import BaseModel, EmailStr, Field
 from app.schemas.user import UserPublic
 
 
-class LoginRequest(BaseModel):
-    """Schema for login request."""
-    username: str
-    password: str
-
-
 class RegisterRequest(BaseModel):
     """Schema for registration request."""
     name: str = Field(max_length=100)

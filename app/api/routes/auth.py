@@ -1,6 +1,8 @@
 from datetime import timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
 from app.api.deps import get_current_active_user, get_role_of_current_user
@@ -9,7 +11,7 @@ from app.core.security import create_access_token, verify_password
 from app.crud.user import create_user, get_user_by_email, get_user_by_username
 from app.database import get_session
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, Token
+from app.schemas.auth import RegisterRequest, Token
 from app.schemas.user import UserCreate, UserPublic
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -58,7 +60,7 @@ def register(
 
 @router.post("/login", response_model=Token)
 def login(
-    login_data: LoginRequest,
+    login_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Session = Depends(get_session),
 ) -> Token:
     """Login and get access token."""
