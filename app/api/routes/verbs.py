@@ -1,4 +1,5 @@
-from typing import List, Optional
+import math
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
@@ -8,32 +9,42 @@ from app.crud.verb import (create_verb, delete_verb, get_verb_by_id,
                            get_verb_by_pair_id, get_verbs, update_verb)
 from app.database import get_session
 from app.models.user import User
+from app.schemas.common import PaginatedResponse
 from app.schemas.verb import VerbCreate, VerbResponse, VerbUpdate
 
 router = APIRouter(prefix="/api/verbs", tags=["verbs"])
 
 
-@router.get("", response_model=List[VerbResponse])
+@router.get("", response_model=PaginatedResponse[VerbResponse])
 def list_verbs(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
-    verb_pair_id: Optional[str] = Query(None),
-    conjugation_type: Optional[int] = Query(None, alias="conjugationType"),
-    translation_lang: Optional[str] = Query(None),
-    translation_text: Optional[str] = Query(None),
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
+    verb_pair_id: Optional[str] = Query(None, description="Filter by verb pair ID (partial match)"),
+    conjugation_type: Optional[int] = Query(None, alias="conjugationType", description="Filter by conjugation type (1 or 2)"),
+    translation_lang: Optional[str] = Query(None, description="Translation language code (es, en, etc.)"),
+    translation_text: Optional[str] = Query(None, description="Search text in translations"),
     session: Session = Depends(get_session),
-) -> List[VerbResponse]:
-    """List verbs with optional filters."""
-    verbs = get_verbs(
+) -> PaginatedResponse[VerbResponse]:
+    """List verbs with optional filters and pagination."""
+    verbs, total = get_verbs(
         session,
-        skip=skip,
-        limit=limit,
+        page=page,
+        per_page=per_page,
         verb_pair_id=verb_pair_id,
         conjugation_type=conjugation_type,
         translation_lang=translation_lang,
         translation_text=translation_text,
     )
-    return [VerbResponse.model_validate(verb) for verb in verbs]
+
+    total_pages = math.ceil(total / per_page) if total > 0 else 0
+
+    return PaginatedResponse(
+        items=[VerbResponse.model_validate(verb) for verb in verbs],
+        total=total,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+    )
 
 
 @router.get("/pair/{verb_pair_id}", response_model=VerbResponse)

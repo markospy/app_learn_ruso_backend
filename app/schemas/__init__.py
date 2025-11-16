@@ -1,4 +1,5 @@
 from app.schemas.auth import RegisterRequest, Token, TokenData
+from app.schemas.common import PaginatedResponse
 from app.schemas.noun import (NounCreate, NounGroupCreate, NounGroupResponse,
                               NounGroupUpdate, NounResponse, NounUpdate)
 from app.schemas.user import UserCreate, UserPublic, UserResponse, UserUpdate
@@ -25,5 +26,6 @@ __all__ = [
     "NounGroupCreate",
     "NounGroupUpdate",
     "NounGroupResponse",
+    "PaginatedResponse",
 ]
 

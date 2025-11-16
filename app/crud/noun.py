@@ -1,11 +1,41 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional, Tuple
 
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.models.noun import Noun, NounGroup, NounGroupNoun
 from app.schemas.noun import (NounCreate, NounGroupCreate, NounGroupUpdate,
                               NounUpdate)
+
+
+def _normalize_translations(translations: Any) -> List[dict]:
+    """Normalize translations to list format."""
+    if not translations:
+        return []
+    if isinstance(translations, dict):
+        return [translations]
+    if isinstance(translations, list):
+        return translations
+    return []
+
+
+def _matches_translation_filter(
+    translations: Any,
+    translation_lang: str,
+    translation_text: str
+) -> bool:
+    """Check if translations match the filter."""
+    normalized = _normalize_translations(translations)
+    if not normalized:
+        return False
+
+    for trans in normalized:
+        if isinstance(trans, dict):
+            lang_translations = trans.get(translation_lang, [])
+            if isinstance(lang_translations, list):
+                if any(translation_text.lower() in t.lower() for t in lang_translations):
+                    return True
+    return False
 
 
 def get_noun_by_id(session: Session, noun_id: int) -> Optional[Noun]:
@@ -15,39 +45,78 @@ def get_noun_by_id(session: Session, noun_id: int) -> Optional[Noun]:
 
 def get_nouns(
     session: Session,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    per_page: int = 20,
     noun: Optional[str] = None,
     gender: Optional[str] = None,
     translation_lang: Optional[str] = None,
     translation_text: Optional[str] = None,
-) -> List[Noun]:
-    """Get nouns with optional filters."""
+) -> Tuple[List[Noun], int]:
+    """Get nouns with optional filters and pagination.
+
+    Returns:
+        Tuple of (nouns list, total count)
+    """
+    # Build base query
     statement = select(Noun)
+    count_statement = select(func.count()).select_from(Noun)
 
+    # Apply filters that can be done in SQL
     if noun:
-        statement = statement.where(Noun.noun.like(f"%{noun}%"))
-    if gender:
-        statement = statement.where(Noun.gender == gender)
+        statement = statement.where(Noun.noun.contains(noun))
+        count_statement = count_statement.where(Noun.noun.contains(noun))
 
-    statement = statement.offset(skip).limit(limit)
+    if gender:
+        statement = statement.where(Noun.gender == gender.lower())
+        count_statement = count_statement.where(Noun.gender == gender.lower())
+
+    # Get total count before pagination
+    total = session.exec(count_statement).one()
+
+    # Apply pagination
+    offset = (page - 1) * per_page
+    statement = statement.offset(offset).limit(per_page)
+
+    # Execute query
     nouns = list(session.exec(statement).all())
 
     # Filter by translation if provided (after fetching due to JSON complexity)
     if translation_lang and translation_text:
         filtered_nouns = []
         for noun_obj in nouns:
-            if noun_obj.translations:
-                for trans in noun_obj.translations:
-                    if isinstance(trans, dict):
-                        lang_translations = trans.get(translation_lang, [])
-                        if isinstance(lang_translations, list):
-                            if any(translation_text.lower() in t.lower() for t in lang_translations):
-                                filtered_nouns.append(noun_obj)
-                                break
+            if _matches_translation_filter(
+                noun_obj.translations,
+                translation_lang,
+                translation_text
+            ):
+                filtered_nouns.append(noun_obj)
+
+        # If we filtered, we need to recalculate total
+        # This is a limitation - we'd need to fetch all to count accurately
+        # For now, we'll do a simple approximation
+        if filtered_nouns:
+            # Re-fetch all matching to get accurate count
+            all_statement = select(Noun)
+            if noun:
+                all_statement = all_statement.where(Noun.noun.contains(noun))
+            if gender:
+                all_statement = all_statement.where(Noun.gender == gender.lower())
+            all_nouns = list(session.exec(all_statement).all())
+            filtered_all = [
+                n for n in all_nouns
+                if _matches_translation_filter(n.translations, translation_lang, translation_text)
+            ]
+            total = len(filtered_all)
+            # Re-apply pagination to filtered results
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            filtered_nouns = filtered_all[start_idx:end_idx]
+        else:
+            total = 0
+
         nouns = filtered_nouns
 
-    return nouns
+    return nouns, total
 
 
 def create_noun(session: Session, noun_create: NounCreate) -> Noun:

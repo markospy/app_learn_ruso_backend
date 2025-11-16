@@ -1,4 +1,5 @@
-from typing import List, Optional
+import math
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
@@ -8,32 +9,42 @@ from app.crud.noun import (create_noun, delete_noun, get_noun_by_id, get_nouns,
                            update_noun)
 from app.database import get_session
 from app.models.user import User
+from app.schemas.common import PaginatedResponse
 from app.schemas.noun import NounCreate, NounResponse, NounUpdate
 
 router = APIRouter(prefix="/api/nouns", tags=["nouns"])
 
 
-@router.get("", response_model=List[NounResponse])
+@router.get("", response_model=PaginatedResponse[NounResponse])
 def list_nouns(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
-    noun: Optional[str] = Query(None),
-    gender: Optional[str] = Query(None),
-    translation_lang: Optional[str] = Query(None),
-    translation_text: Optional[str] = Query(None),
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
+    noun: Optional[str] = Query(None, description="Filter by noun (partial match)"),
+    gender: Optional[str] = Query(None, description="Filter by gender (masculine, feminine, neuter)"),
+    translation_lang: Optional[str] = Query(None, description="Translation language code (es, en, etc.)"),
+    translation_text: Optional[str] = Query(None, description="Search text in translations"),
     session: Session = Depends(get_session),
-) -> List[NounResponse]:
-    """List nouns with optional filters."""
-    nouns = get_nouns(
+) -> PaginatedResponse[NounResponse]:
+    """List nouns with optional filters and pagination."""
+    nouns, total = get_nouns(
         session,
-        skip=skip,
-        limit=limit,
+        page=page,
+        per_page=per_page,
         noun=noun,
         gender=gender,
         translation_lang=translation_lang,
         translation_text=translation_text,
     )
-    return [NounResponse.model_validate(noun) for noun in nouns]
+
+    total_pages = math.ceil(total / per_page) if total > 0 else 0
+
+    return PaginatedResponse(
+        items=[NounResponse.model_validate(noun) for noun in nouns],
+        total=total,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+    )
 
 
 @router.get("/{noun_id}", response_model=NounResponse)

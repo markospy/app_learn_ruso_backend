@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class WordForm(BaseModel):
@@ -61,6 +61,20 @@ class NounResponse(NounBase):
     id: int
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("translations", mode="before")
+    @classmethod
+    def normalize_translations(cls, v: Any) -> List[Dict[str, Any]]:
+        """Convert translations from dict format to list format if needed."""
+        if v is None:
+            return []
+        # If it's a dict (from DB), convert to list
+        if isinstance(v, dict):
+            return [v]
+        # If it's already a list, return as is
+        if isinstance(v, list):
+            return v
+        return []
 
     class Config:
         from_attributes = True

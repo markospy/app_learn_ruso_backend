@@ -1,11 +1,41 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional, Tuple
 
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.models.verb import Verb, VerbGroup, VerbGroupVerb
 from app.schemas.verb import (VerbCreate, VerbGroupCreate, VerbGroupUpdate,
                               VerbUpdate)
+
+
+def _normalize_translations(translations: Any) -> List[dict]:
+    """Normalize translations to list format."""
+    if not translations:
+        return []
+    if isinstance(translations, dict):
+        return [translations]
+    if isinstance(translations, list):
+        return translations
+    return []
+
+
+def _matches_translation_filter(
+    translations: Any,
+    translation_lang: str,
+    translation_text: str
+) -> bool:
+    """Check if translations match the filter."""
+    normalized = _normalize_translations(translations)
+    if not normalized:
+        return False
+
+    for trans in normalized:
+        if isinstance(trans, dict):
+            lang_translations = trans.get(translation_lang, [])
+            if isinstance(lang_translations, list):
+                if any(translation_text.lower() in t.lower() for t in lang_translations):
+                    return True
+    return False
 
 
 def get_verb_by_id(session: Session, verb_id: int) -> Optional[Verb]:
@@ -21,39 +51,76 @@ def get_verb_by_pair_id(session: Session, verb_pair_id: str) -> Optional[Verb]:
 
 def get_verbs(
     session: Session,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    per_page: int = 20,
     verb_pair_id: Optional[str] = None,
     conjugation_type: Optional[int] = None,
     translation_lang: Optional[str] = None,
     translation_text: Optional[str] = None,
-) -> List[Verb]:
-    """Get verbs with optional filters."""
-    statement = select(Verb)
+) -> Tuple[List[Verb], int]:
+    """Get verbs with optional filters and pagination.
 
+    Returns:
+        Tuple of (verbs list, total count)
+    """
+    # Build base query
+    statement = select(Verb)
+    count_statement = select(func.count()).select_from(Verb)
+
+    # Apply filters that can be done in SQL
     if verb_pair_id:
-        statement = statement.where(Verb.verb_pair_id.like(f"%{verb_pair_id}%"))
+        statement = statement.where(Verb.verb_pair_id.contains(verb_pair_id))
+        count_statement = count_statement.where(Verb.verb_pair_id.contains(verb_pair_id))
+
     if conjugation_type:
         statement = statement.where(Verb.conjugation_type == conjugation_type)
+        count_statement = count_statement.where(Verb.conjugation_type == conjugation_type)
 
-    statement = statement.offset(skip).limit(limit)
+    # Get total count before pagination
+    total = session.exec(count_statement).one()
+
+    # Apply pagination
+    offset = (page - 1) * per_page
+    statement = statement.offset(offset).limit(per_page)
+
+    # Execute query
     verbs = list(session.exec(statement).all())
 
     # Filter by translation if provided (after fetching due to JSON complexity)
     if translation_lang and translation_text:
         filtered_verbs = []
         for verb in verbs:
-            if verb.translations:
-                for trans in verb.translations:
-                    if isinstance(trans, dict):
-                        lang_translations = trans.get(translation_lang, [])
-                        if isinstance(lang_translations, list):
-                            if any(translation_text.lower() in t.lower() for t in lang_translations):
-                                filtered_verbs.append(verb)
-                                break
+            if _matches_translation_filter(
+                verb.translations,
+                translation_lang,
+                translation_text
+            ):
+                filtered_verbs.append(verb)
+
+        # If we filtered, we need to recalculate total
+        if filtered_verbs:
+            # Re-fetch all matching to get accurate count
+            all_statement = select(Verb)
+            if verb_pair_id:
+                all_statement = all_statement.where(Verb.verb_pair_id.contains(verb_pair_id))
+            if conjugation_type:
+                all_statement = all_statement.where(Verb.conjugation_type == conjugation_type)
+            all_verbs = list(session.exec(all_statement).all())
+            filtered_all = [
+                v for v in all_verbs
+                if _matches_translation_filter(v.translations, translation_lang, translation_text)
+            ]
+            total = len(filtered_all)
+            # Re-apply pagination to filtered results
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            filtered_verbs = filtered_all[start_idx:end_idx]
+        else:
+            total = 0
+
         verbs = filtered_verbs
 
-    return verbs
+    return verbs, total
 
 
 def create_verb(session: Session, verb_create: VerbCreate) -> Verb:
