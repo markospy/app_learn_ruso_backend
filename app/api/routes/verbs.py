@@ -10,7 +10,8 @@ from app.crud.verb import (create_verb, delete_verb, get_verb_by_id,
 from app.database import get_session
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
-from app.schemas.verb import VerbCreate, VerbResponse, VerbUpdate
+from app.schemas.verb import (VerbCreate, VerbResponse, VerbUpdate,
+                              normalize_verb_for_response)
 
 router = APIRouter(prefix="/api/verbs", tags=["verbs"])
 
@@ -39,7 +40,7 @@ def list_verbs(
     total_pages = math.ceil(total / per_page) if total > 0 else 0
 
     return PaginatedResponse(
-        items=[VerbResponse.model_validate(verb) for verb in verbs],
+        items=[VerbResponse.model_validate(normalize_verb_for_response(verb)) for verb in verbs],
         total=total,
         page=page,
         per_page=per_page,
@@ -59,7 +60,7 @@ def get_verb_by_pair(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Verb not found"
         )
-    return VerbResponse.model_validate(verb)
+    return VerbResponse.model_validate(normalize_verb_for_response(verb))
 
 
 @router.get("/{verb_id}", response_model=VerbResponse)
@@ -74,7 +75,7 @@ def get_verb(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Verb not found"
         )
-    return VerbResponse.model_validate(verb)
+    return VerbResponse.model_validate(normalize_verb_for_response(verb))
 
 
 @router.post("", response_model=VerbResponse, status_code=status.HTTP_201_CREATED)
@@ -93,7 +94,7 @@ def create_verb_endpoint(
         )
 
     verb = create_verb(session, verb_create)
-    return VerbResponse.model_validate(verb)
+    return VerbResponse.model_validate(normalize_verb_for_response(verb))
 
 
 @router.put("/{verb_id}", response_model=VerbResponse)

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class WordForm(BaseModel):
@@ -63,7 +63,7 @@ class VerbBase(BaseModel):
     root: str = Field(max_length=100)
     stress_pattern: Optional[str] = Field(default=None, max_length=50)
     imperfective: ImperfectiveAspect
-    perfective: PerfectiveAspect
+    perfective: Optional[PerfectiveAspect] = None
 
     class Config:
         populate_by_name = True
@@ -88,11 +88,162 @@ class VerbUpdate(BaseModel):
         populate_by_name = True
 
 
+def _normalize_word_form(value: Any) -> Dict[str, str]:
+    """Normalize word form - accepts string or dict."""
+    if isinstance(value, str):
+        return {"word": value, "accent": value, "phonetics": ""}
+    if isinstance(value, dict):
+        return value
+    return {"word": "", "accent": "", "phonetics": ""}
+
+
+def _normalize_verb_structure(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize verb structure to handle both simple and complex formats."""
+    if not isinstance(data, dict):
+        return data
+
+    # Normalize imperfective (required)
+    if "imperfective" in data and data["imperfective"] is not None and isinstance(data["imperfective"], dict):
+        imperfective = data["imperfective"]
+
+        # Normalize infinitive
+        if "infinitive" in imperfective:
+            infinitive = imperfective["infinitive"]
+            if isinstance(infinitive, str):
+                # Direct string -> convert to {word: {word, accent, phonetics}}
+                imperfective["infinitive"] = {"word": _normalize_word_form(infinitive)}
+            elif isinstance(infinitive, dict):
+                if "word" in infinitive:
+                    # word is string -> convert to WordForm
+                    if isinstance(infinitive["word"], str):
+                        imperfective["infinitive"]["word"] = _normalize_word_form(infinitive["word"])
+                    # word is already dict -> keep as is (but ensure it has all fields)
+                    elif isinstance(infinitive["word"], dict):
+                        # Ensure all required fields exist
+                        word_form = infinitive["word"]
+                        if "word" not in word_form:
+                            word_form["word"] = ""
+                        if "accent" not in word_form:
+                            word_form["accent"] = word_form.get("word", "")
+                        if "phonetics" not in word_form:
+                            word_form["phonetics"] = ""
+                else:
+                    # No word field, might be malformed, create default
+                    imperfective["infinitive"] = {"word": {"word": "", "accent": "", "phonetics": ""}}
+
+        # Normalize present_tense
+        if "present_tense" in imperfective and isinstance(imperfective["present_tense"], dict):
+            for key in ["ya", "ty", "on_ona", "my", "vy", "oni"]:
+                if key in imperfective["present_tense"]:
+                    imperfective["present_tense"][key] = _normalize_word_form(imperfective["present_tense"][key])
+
+        # Normalize past_tense
+        if "past_tense" in imperfective and isinstance(imperfective["past_tense"], dict):
+            for key in ["masculine", "feminine", "neuter", "plural"]:
+                if key in imperfective["past_tense"]:
+                    imperfective["past_tense"][key] = _normalize_word_form(imperfective["past_tense"][key])
+
+    # Normalize perfective (optional - some verbs don't have perfective)
+    if "perfective" in data and data["perfective"] is not None and isinstance(data["perfective"], dict):
+        perfective = data["perfective"]
+
+        # Normalize infinitive
+        if "infinitive" in perfective:
+            infinitive = perfective["infinitive"]
+            if isinstance(infinitive, str):
+                # Direct string -> convert to {word: {word, accent, phonetics}}
+                perfective["infinitive"] = {"word": _normalize_word_form(infinitive)}
+            elif isinstance(infinitive, dict):
+                if "word" in infinitive:
+                    # word is string -> convert to WordForm
+                    if isinstance(infinitive["word"], str):
+                        perfective["infinitive"]["word"] = _normalize_word_form(infinitive["word"])
+                    # word is already dict -> keep as is (but ensure it has all fields)
+                    elif isinstance(infinitive["word"], dict):
+                        # Ensure all required fields exist
+                        word_form = infinitive["word"]
+                        if "word" not in word_form:
+                            word_form["word"] = ""
+                        if "accent" not in word_form:
+                            word_form["accent"] = word_form.get("word", "")
+                        if "phonetics" not in word_form:
+                            word_form["phonetics"] = ""
+                else:
+                    # No word field, might be malformed, create default
+                    perfective["infinitive"] = {"word": {"word": "", "accent": "", "phonetics": ""}}
+
+        # Normalize future_simple
+        if "future_simple" in perfective and isinstance(perfective["future_simple"], dict):
+            for key in ["ya", "ty", "on_ona", "my", "vy", "oni"]:
+                if key in perfective["future_simple"]:
+                    perfective["future_simple"][key] = _normalize_word_form(perfective["future_simple"][key])
+    elif "perfective" in data and data["perfective"] is None:
+        # Keep None if it's explicitly None
+        pass
+
+    return data
+
+
+def normalize_verb_for_response(verb: Any) -> Dict[str, Any]:
+    """Normalize verb object/dict for VerbResponse validation."""
+    # Convert SQLModel object to dict if needed
+    if hasattr(verb, "model_dump"):
+        # Use model_dump with mode='json' to get JSON-serializable dict
+        data = verb.model_dump(mode='json')
+    elif hasattr(verb, "__dict__"):
+        data = {}
+        for k, v in verb.__dict__.items():
+            if not k.startswith("_"):
+                # Handle JSON fields that might be already parsed
+                if k in ("imperfective", "perfective", "translations"):
+                    data[k] = v
+                else:
+                    data[k] = v
+    elif isinstance(verb, dict):
+        data = verb.copy()
+    else:
+        data = {}
+
+    # Normalize translations
+    if "translations" in data:
+        translations = data["translations"]
+        if isinstance(translations, dict):
+            data["translations"] = [translations]
+        elif not isinstance(translations, list):
+            data["translations"] = []
+
+    # Normalize verb structure (imperfective/perfective)
+    data = _normalize_verb_structure(data)
+
+    return data
+
+
 class VerbResponse(VerbBase):
     """Schema for verb response."""
     id: int
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_data(cls, data: Any) -> Any:
+        """Normalize verb data structure before validation."""
+        # Handle SQLModel objects
+        if not isinstance(data, dict):
+            data = normalize_verb_for_response(data)
+        else:
+            # Normalize translations
+            if "translations" in data:
+                translations = data["translations"]
+                if isinstance(translations, dict):
+                    data["translations"] = [translations]
+                elif not isinstance(translations, list):
+                    data["translations"] = []
+
+            # Normalize verb structure (imperfective/perfective)
+            data = _normalize_verb_structure(data)
+
+        return data
 
     @field_validator("translations", mode="before")
     @classmethod

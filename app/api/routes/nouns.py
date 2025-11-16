@@ -10,7 +10,8 @@ from app.crud.noun import (create_noun, delete_noun, get_noun_by_id, get_nouns,
 from app.database import get_session
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
-from app.schemas.noun import NounCreate, NounResponse, NounUpdate
+from app.schemas.noun import (NounCreate, NounResponse, NounUpdate,
+                              normalize_noun_for_response)
 
 router = APIRouter(prefix="/api/nouns", tags=["nouns"])
 
@@ -39,7 +40,7 @@ def list_nouns(
     total_pages = math.ceil(total / per_page) if total > 0 else 0
 
     return PaginatedResponse(
-        items=[NounResponse.model_validate(noun) for noun in nouns],
+        items=[NounResponse.model_validate(normalize_noun_for_response(noun)) for noun in nouns],
         total=total,
         page=page,
         per_page=per_page,
@@ -59,7 +60,7 @@ def get_noun(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Noun not found"
         )
-    return NounResponse.model_validate(noun)
+    return NounResponse.model_validate(normalize_noun_for_response(noun))
 
 
 @router.post("", response_model=NounResponse, status_code=status.HTTP_201_CREATED)
@@ -70,7 +71,7 @@ def create_noun_endpoint(
 ) -> NounResponse:
     """Create a new noun (admin or teacher only)."""
     noun = create_noun(session, noun_create)
-    return NounResponse.model_validate(noun)
+    return NounResponse.model_validate(normalize_noun_for_response(noun))
 
 
 @router.put("/{noun_id}", response_model=NounResponse)
