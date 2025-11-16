@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Index, Relationship, SQLModel
@@ -19,43 +19,26 @@ class VerbGroupVerb(SQLModel, table=True):
 
 
 class Verb(SQLModel, table=True):
-    """Verb model for Russian verb conjugations."""
+    """Verb model for Russian verb conjugations with full grammar support."""
 
     __tablename__ = "verbs"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    infinitive: str = Field(max_length=100, unique=True, index=True)
-    translations: list[dict[str, str]] = Field(
+    verb_pair_id: str = Field(max_length=200, unique=True, index=True)
+    translations: List[Dict[str, Any]] = Field(
         default_factory=list, sa_column=Column(JSON)
     )
-    conjugationType: int = Field()  # 1 or 2
+    conjugation_type: int = Field()  # 1 or 2
     root: str = Field(max_length=100)
+    stress_pattern: Optional[str] = Field(default=None, max_length=50)
 
-    # Present tense
-    present_ya: str = Field(max_length=50)
-    present_ty: str = Field(max_length=50)
-    present_on_ona: str = Field(max_length=50)
-    present_my: str = Field(max_length=50)
-    present_vy: str = Field(max_length=50)
-    present_oni: str = Field(max_length=50)
-
-    # Past tense
-    past_masculine: str = Field(max_length=50)
-    past_feminine: str = Field(max_length=50)
-    past_neuter: str = Field(max_length=50)
-    past_plural: str = Field(max_length=50)
-
-    # Future tense
-    future_ya: str = Field(max_length=50)
-    future_ty: str = Field(max_length=50)
-    future_on_ona: str = Field(max_length=50)
-    future_my: str = Field(max_length=50)
-    future_vy: str = Field(max_length=50)
-    future_oni: str = Field(max_length=50)
-
-    # Imperative
-    imperative_singular: str = Field(max_length=50)
-    imperative_plural: str = Field(max_length=50)
+    # Store complete verb data as JSON
+    imperfective: Dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON)
+    )
+    perfective: Dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON)
+    )
 
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
@@ -64,10 +47,12 @@ class Verb(SQLModel, table=True):
     verb_groups: List["VerbGroup"] = Relationship(
         back_populates="verbs", link_model=VerbGroupVerb
     )
+
     # Indexes
     __table_args__ = (
+        Index("idx_verb_pair_id", "verb_pair_id", unique=True),
         Index("idx_verb_translations", "translations"),
-        Index("idx_verb_infinitive", "infinitive", unique=True),
+        Index("idx_verb_conjugation_type", "conjugation_type"),
     )
 
 
@@ -87,4 +72,3 @@ class VerbGroup(SQLModel, table=True):
     verbs: List["Verb"] = Relationship(
         back_populates="verb_groups", link_model=VerbGroupVerb
     )
-

@@ -1,28 +1,11 @@
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from sqlmodel import Session, select
 
 from app.models.noun import Noun, NounGroup, NounGroupNoun
 from app.schemas.noun import (NounCreate, NounGroupCreate, NounGroupUpdate,
                               NounUpdate)
-from app.schemas.traslation import Translation
-
-
-def _convert_translation_to_db_format(translation: Any) -> dict[str, str]:
-    """Convert translation to database format: {"es": "amar"}."""
-    if hasattr(translation, "to_dict"):
-        return translation.to_dict()  # type: ignore
-    if isinstance(translation, dict):
-        # If it's already in new format {"es": "amar"}
-        if len(translation) == 1:
-            key = list(translation.keys())[0]
-            if key not in ("language", "translation"):
-                return translation  # type: ignore
-        # If it's in old format {"language": "es", "translation": "amar"}
-        if "language" in translation and "translation" in translation:
-            return {translation["language"]: translation["translation"]}  # type: ignore
-    return translation  # type: ignore
 
 
 def get_noun_by_id(session: Session, noun_id: int) -> Optional[Noun]:
@@ -36,7 +19,8 @@ def get_nouns(
     limit: int = 100,
     noun: Optional[str] = None,
     gender: Optional[str] = None,
-    translation: Optional[Translation] = None,
+    translation_lang: Optional[str] = None,
+    translation_text: Optional[str] = None,
 ) -> List[Noun]:
     """Get nouns with optional filters."""
     statement = select(Noun)
@@ -45,38 +29,43 @@ def get_nouns(
         statement = statement.where(Noun.noun.like(f"%{noun}%"))
     if gender:
         statement = statement.where(Noun.gender == gender)
-    if translation:
-        # Filter in Python after fetching (SQLite JSON search is complex)
-        # We'll filter after getting results
-        pass
+
     statement = statement.offset(skip).limit(limit)
     nouns = list(session.exec(statement).all())
 
     # Filter by translation if provided (after fetching due to JSON complexity)
-    if translation:
-        # Support both old format {"language": "es", "translation": "amar"} and new format {"es": "amar"}
-        translation_dict_new = {translation.language: translation.translation}
-        translation_dict_old = {"language": translation.language, "translation": translation.translation}
-        nouns = [
-            noun for noun in nouns
-            if noun.translations and (
-                translation_dict_new in (noun.translations or []) or
-                translation_dict_old in (noun.translations or [])
-            )
-        ]
+    if translation_lang and translation_text:
+        filtered_nouns = []
+        for noun_obj in nouns:
+            if noun_obj.translations:
+                for trans in noun_obj.translations:
+                    if isinstance(trans, dict):
+                        lang_translations = trans.get(translation_lang, [])
+                        if isinstance(lang_translations, list):
+                            if any(translation_text.lower() in t.lower() for t in lang_translations):
+                                filtered_nouns.append(noun_obj)
+                                break
+        nouns = filtered_nouns
 
     return nouns
 
 
 def create_noun(session: Session, noun_create: NounCreate) -> Noun:
     """Create a new noun."""
-    data = noun_create.model_dump()
-    # Convert Translation objects to dict format for database storage: {"es": "amar"}
-    if "translations" in data and data["translations"]:
-        data["translations"] = [
-            _convert_translation_to_db_format(t)
-            for t in data["translations"]
-        ]
+    data = noun_create.model_dump(exclude_unset=True)
+
+    # Convert nested Pydantic models to dicts for JSON storage
+    if "declension" in data and hasattr(data["declension"], "model_dump"):
+        data["declension"] = data["declension"].model_dump()
+    if "translations" in data:
+        translations_list = []
+        for trans in data["translations"]:
+            if hasattr(trans, "model_dump"):
+                translations_list.append(trans.model_dump(exclude_none=True))
+            else:
+                translations_list.append(trans)
+        data["translations"] = translations_list
+
     noun = Noun(**data)
     session.add(noun)
     session.commit()
@@ -87,12 +76,19 @@ def create_noun(session: Session, noun_create: NounCreate) -> Noun:
 def update_noun(session: Session, noun: Noun, noun_update: NounUpdate) -> Noun:
     """Update a noun."""
     update_data = noun_update.model_dump(exclude_unset=True)
-    # Convert Translation objects to dict format for database storage: {"es": "amar"}
-    if "translations" in update_data and update_data["translations"]:
-        update_data["translations"] = [
-            _convert_translation_to_db_format(t)
-            for t in update_data["translations"]
-        ]
+
+    # Convert nested Pydantic models to dicts for JSON storage
+    if "declension" in update_data and hasattr(update_data["declension"], "model_dump"):
+        update_data["declension"] = update_data["declension"].model_dump()
+    if "translations" in update_data:
+        translations_list = []
+        for trans in update_data["translations"]:
+            if hasattr(trans, "model_dump"):
+                translations_list.append(trans.model_dump(exclude_none=True))
+            else:
+                translations_list.append(trans)
+        update_data["translations"] = translations_list
+
     for field, value in update_data.items():
         setattr(noun, field, value)
     noun.updated_at = datetime.now()
@@ -168,4 +164,3 @@ def remove_noun_from_group(session: Session, group_id: int, noun_id: int) -> Non
     if link:
         session.delete(link)
         session.commit()
-

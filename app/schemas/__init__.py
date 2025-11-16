@@ -1,15 +1,9 @@
 from app.schemas.auth import LoginRequest, RegisterRequest, Token, TokenData
-from app.schemas.noun import NounCreate, NounGroupCreate, NounGroupResponse, NounGroupUpdate, NounResponse, NounUpdate
+from app.schemas.noun import (NounCreate, NounGroupCreate, NounGroupResponse,
+                              NounGroupUpdate, NounResponse, NounUpdate)
 from app.schemas.user import UserCreate, UserPublic, UserResponse, UserUpdate
-from app.schemas.verb import (
-                              VerbConjugations,
-                              VerbCreate,
-                              VerbGroupCreate,
-                              VerbGroupResponse,
-                              VerbGroupUpdate,
-                              VerbResponse,
-                              VerbUpdate,
-)
+from app.schemas.verb import (VerbCreate, VerbGroupCreate, VerbGroupResponse,
+                              VerbGroupUpdate, VerbResponse, VerbUpdate)
 
 __all__ = [
     "UserCreate",
@@ -23,7 +17,6 @@ __all__ = [
     "VerbCreate",
     "VerbUpdate",
     "VerbResponse",
-    "VerbConjugations",
     "VerbGroupCreate",
     "VerbGroupUpdate",
     "VerbGroupResponse",

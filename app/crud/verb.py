@@ -1,28 +1,11 @@
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from sqlmodel import Session, select
 
 from app.models.verb import Verb, VerbGroup, VerbGroupVerb
-from app.schemas.traslation import Translation
 from app.schemas.verb import (VerbCreate, VerbGroupCreate, VerbGroupUpdate,
                               VerbUpdate)
-
-
-def _convert_translation_to_db_format(translation: Any) -> dict[str, str]:
-    """Convert translation to database format: {"es": "amar"}."""
-    if hasattr(translation, "to_dict"):
-        return translation.to_dict()  # type: ignore
-    if isinstance(translation, dict):
-        # If it's already in new format {"es": "amar"}
-        if len(translation) == 1:
-            key = list(translation.keys())[0]
-            if key not in ("language", "translation"):
-                return translation  # type: ignore
-        # If it's in old format {"language": "es", "translation": "amar"}
-        if "language" in translation and "translation" in translation:
-            return {translation["language"]: translation["translation"]}  # type: ignore
-    return translation  # type: ignore
 
 
 def get_verb_by_id(session: Session, verb_id: int) -> Optional[Verb]:
@@ -30,49 +13,67 @@ def get_verb_by_id(session: Session, verb_id: int) -> Optional[Verb]:
     return session.get(Verb, verb_id)
 
 
+def get_verb_by_pair_id(session: Session, verb_pair_id: str) -> Optional[Verb]:
+    """Get verb by pair ID."""
+    statement = select(Verb).where(Verb.verb_pair_id == verb_pair_id)
+    return session.exec(statement).first()
+
+
 def get_verbs(
     session: Session,
     skip: int = 0,
     limit: int = 100,
-    infinitive: Optional[str] = None,
+    verb_pair_id: Optional[str] = None,
     conjugation_type: Optional[int] = None,
-    translation: Optional[Translation] = None,
+    translation_lang: Optional[str] = None,
+    translation_text: Optional[str] = None,
 ) -> List[Verb]:
     """Get verbs with optional filters."""
     statement = select(Verb)
 
-    if infinitive:
-        statement = statement.where(Verb.infinitive.like(f"%{infinitive}%"))
+    if verb_pair_id:
+        statement = statement.where(Verb.verb_pair_id.like(f"%{verb_pair_id}%"))
     if conjugation_type:
-        statement = statement.where(Verb.conjugationType == conjugation_type)
+        statement = statement.where(Verb.conjugation_type == conjugation_type)
+
     statement = statement.offset(skip).limit(limit)
     verbs = list(session.exec(statement).all())
 
     # Filter by translation if provided (after fetching due to JSON complexity)
-    if translation:
-        # Support both old format {"language": "es", "translation": "amar"} and new format {"es": "amar"}
-        translation_dict_new = {translation.language: translation.translation}
-        translation_dict_old = {"language": translation.language, "translation": translation.translation}
-        verbs = [
-            verb for verb in verbs
-            if verb.translations and (
-                translation_dict_new in (verb.translations or []) or
-                translation_dict_old in (verb.translations or [])
-            )
-        ]
+    if translation_lang and translation_text:
+        filtered_verbs = []
+        for verb in verbs:
+            if verb.translations:
+                for trans in verb.translations:
+                    if isinstance(trans, dict):
+                        lang_translations = trans.get(translation_lang, [])
+                        if isinstance(lang_translations, list):
+                            if any(translation_text.lower() in t.lower() for t in lang_translations):
+                                filtered_verbs.append(verb)
+                                break
+        verbs = filtered_verbs
 
     return verbs
 
 
 def create_verb(session: Session, verb_create: VerbCreate) -> Verb:
     """Create a new verb."""
-    data = verb_create.model_dump()
-    # Convert Translation objects to dict format for database storage: {"es": "amar"}
-    if "translations" in data and data["translations"]:
-        data["translations"] = [
-            _convert_translation_to_db_format(t)
-            for t in data["translations"]
-        ]
+    data = verb_create.model_dump(exclude_unset=True, by_alias=True)
+
+    # Convert nested Pydantic models to dicts for JSON storage
+    if "imperfective" in data and hasattr(data["imperfective"], "model_dump"):
+        data["imperfective"] = data["imperfective"].model_dump()
+    if "perfective" in data and hasattr(data["perfective"], "model_dump"):
+        data["perfective"] = data["perfective"].model_dump()
+    if "translations" in data:
+        translations_list = []
+        for trans in data["translations"]:
+            if hasattr(trans, "model_dump"):
+                translations_list.append(trans.model_dump(exclude_none=True))
+            else:
+                translations_list.append(trans)
+        data["translations"] = translations_list
+
     verb = Verb(**data)
     session.add(verb)
     session.commit()
@@ -82,13 +83,22 @@ def create_verb(session: Session, verb_create: VerbCreate) -> Verb:
 
 def update_verb(session: Session, verb: Verb, verb_update: VerbUpdate) -> Verb:
     """Update a verb."""
-    update_data = verb_update.model_dump(exclude_unset=True)
-    # Convert Translation objects to dict format for database storage: {"es": "amar"}
-    if "translations" in update_data and update_data["translations"]:
-        update_data["translations"] = [
-            _convert_translation_to_db_format(t)
-            for t in update_data["translations"]
-        ]
+    update_data = verb_update.model_dump(exclude_unset=True, by_alias=True)
+
+    # Convert nested Pydantic models to dicts for JSON storage
+    if "imperfective" in update_data and hasattr(update_data["imperfective"], "model_dump"):
+        update_data["imperfective"] = update_data["imperfective"].model_dump()
+    if "perfective" in update_data and hasattr(update_data["perfective"], "model_dump"):
+        update_data["perfective"] = update_data["perfective"].model_dump()
+    if "translations" in update_data:
+        translations_list = []
+        for trans in update_data["translations"]:
+            if hasattr(trans, "model_dump"):
+                translations_list.append(trans.model_dump(exclude_none=True))
+            else:
+                translations_list.append(trans)
+        update_data["translations"] = translations_list
+
     for field, value in update_data.items():
         setattr(verb, field, value)
     verb.updated_at = datetime.now()
@@ -164,4 +174,3 @@ def remove_verb_from_group(session: Session, group_id: int, verb_id: int) -> Non
     if link:
         session.delete(link)
         session.commit()
-

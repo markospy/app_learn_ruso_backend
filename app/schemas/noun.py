@@ -1,18 +1,46 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.traslation import Translation
+
+class WordForm(BaseModel):
+    """Schema for a word form with accent and phonetics."""
+    word: str
+    accent: str
+    phonetics: str
+
+
+class TranslationSchema(BaseModel):
+    """Schema for translations by language."""
+    es: Optional[List[str]] = None
+    en: Optional[List[str]] = None
+    pt: Optional[List[str]] = None
+    # Add more languages as needed
+
+
+class CaseForms(BaseModel):
+    """Schema for case forms (all 6 cases)."""
+    nominative: WordForm
+    genitive: WordForm
+    dative: WordForm
+    accusative: WordForm
+    instrumental: WordForm
+    prepositional: WordForm
+
+
+class Declension(BaseModel):
+    """Schema for noun declension."""
+    singular: CaseForms
+    plural: CaseForms
 
 
 class NounBase(BaseModel):
-    """Base noun schema."""
+    """Base noun schema with full declension support."""
     noun: str = Field(max_length=100)
-    translations: list[Translation] = Field(default=[])
-    singular: str = Field(max_length=100)
-    plural: str = Field(max_length=100)
     gender: str = Field(max_length=10)  # masculine, feminine, neuter
+    translations: List[TranslationSchema] = Field(default_factory=list)
+    declension: Declension
 
 
 class NounCreate(NounBase):
@@ -23,10 +51,9 @@ class NounCreate(NounBase):
 class NounUpdate(BaseModel):
     """Schema for updating a noun."""
     noun: Optional[str] = Field(default=None, max_length=100)
-    translations: Optional[list[Translation]] = Field(default=None)
-    singular: Optional[str] = Field(default=None, max_length=100)
-    plural: Optional[str] = Field(default=None, max_length=100)
     gender: Optional[str] = Field(default=None, max_length=10)
+    translations: Optional[List[TranslationSchema]] = None
+    declension: Optional[Dict[str, Any]] = None
 
 
 class NounResponse(NounBase):
@@ -64,4 +91,3 @@ class NounGroupResponse(NounGroupBase):
 
     class Config:
         from_attributes = True
-

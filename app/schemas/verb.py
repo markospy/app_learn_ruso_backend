@@ -1,43 +1,72 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.traslation import Translation
+
+class WordForm(BaseModel):
+    """Schema for a word form with accent and phonetics."""
+    word: str
+    accent: str
+    phonetics: str
 
 
-class VerbConjugations(BaseModel):
-    """Schema for verb conjugations grouped by tense."""
-    present: dict[str, str]
-    past: dict[str, str]
-    future: dict[str, str]
-    imperative: dict[str, str]
+class TranslationSchema(BaseModel):
+    """Schema for translations by language."""
+    es: Optional[List[str]] = None
+    en: Optional[List[str]] = None
+    pt: Optional[List[str]] = None
+    # Add more languages as needed
+
+
+class VerbInfinitive(BaseModel):
+    """Schema for infinitive form."""
+    word: WordForm
+
+
+class VerbTenseForms(BaseModel):
+    """Schema for tense forms (present, past, future)."""
+    ya: Optional[WordForm] = None
+    ty: Optional[WordForm] = None
+    on_ona: Optional[WordForm] = None
+    my: Optional[WordForm] = None
+    vy: Optional[WordForm] = None
+    oni: Optional[WordForm] = None
+
+
+class VerbPastTenseForms(BaseModel):
+    """Schema for past tense forms."""
+    masculine: Optional[WordForm] = None
+    feminine: Optional[WordForm] = None
+    neuter: Optional[WordForm] = None
+    plural: Optional[WordForm] = None
+
+
+class ImperfectiveAspect(BaseModel):
+    """Schema for imperfective aspect conjugations."""
+    infinitive: VerbInfinitive
+    present_tense: VerbTenseForms
+    past_tense: VerbPastTenseForms
+
+
+class PerfectiveAspect(BaseModel):
+    """Schema for perfective aspect conjugations."""
+    infinitive: VerbInfinitive
+    future_simple: VerbTenseForms
 
 
 class VerbBase(BaseModel):
-    """Base verb schema."""
-    infinitive: str = Field(max_length=100)
-    conjugationType: int = Field(ge=1, le=2)
+    """Base verb schema with full grammar support."""
+    verb_pair_id: str = Field(max_length=200)
+    translations: List[TranslationSchema] = Field(default_factory=list)
+    conjugation_type: int = Field(ge=1, le=2, alias="conjugationType")
     root: str = Field(max_length=100)
-    translations: list[Translation] = Field(default=[])
-    present_ya: str = Field(max_length=50)
-    present_ty: str = Field(max_length=50)
-    present_on_ona: str = Field(max_length=50)
-    present_my: str = Field(max_length=50)
-    present_vy: str = Field(max_length=50)
-    present_oni: str = Field(max_length=50)
-    past_masculine: str = Field(max_length=50)
-    past_feminine: str = Field(max_length=50)
-    past_neuter: str = Field(max_length=50)
-    past_plural: str = Field(max_length=50)
-    future_ya: str = Field(max_length=50)
-    future_ty: str = Field(max_length=50)
-    future_on_ona: str = Field(max_length=50)
-    future_my: str = Field(max_length=50)
-    future_vy: str = Field(max_length=50)
-    future_oni: str = Field(max_length=50)
-    imperative_singular: str = Field(max_length=50)
-    imperative_plural: str = Field(max_length=50)
+    stress_pattern: Optional[str] = Field(default=None, max_length=50)
+    imperfective: ImperfectiveAspect
+    perfective: PerfectiveAspect
+
+    class Config:
+        populate_by_name = True
 
 
 class VerbCreate(VerbBase):
@@ -47,28 +76,16 @@ class VerbCreate(VerbBase):
 
 class VerbUpdate(BaseModel):
     """Schema for updating a verb."""
-    infinitive: Optional[str] = Field(default=None, max_length=100)
-    conjugationType: Optional[int] = Field(default=None, ge=1, le=2)
+    verb_pair_id: Optional[str] = Field(default=None, max_length=200)
+    translations: Optional[List[TranslationSchema]] = None
+    conjugation_type: Optional[int] = Field(default=None, ge=1, le=2, alias="conjugationType")
     root: Optional[str] = Field(default=None, max_length=100)
-    translations: Optional[list[Translation]] = Field(default=None)
-    present_ya: Optional[str] = Field(default=None, max_length=50)
-    present_ty: Optional[str] = Field(default=None, max_length=50)
-    present_on_ona: Optional[str] = Field(default=None, max_length=50)
-    present_my: Optional[str] = Field(default=None, max_length=50)
-    present_vy: Optional[str] = Field(default=None, max_length=50)
-    present_oni: Optional[str] = Field(default=None, max_length=50)
-    past_masculine: Optional[str] = Field(default=None, max_length=50)
-    past_feminine: Optional[str] = Field(default=None, max_length=50)
-    past_neuter: Optional[str] = Field(default=None, max_length=50)
-    past_plural: Optional[str] = Field(default=None, max_length=50)
-    future_ya: Optional[str] = Field(default=None, max_length=50)
-    future_ty: Optional[str] = Field(default=None, max_length=50)
-    future_on_ona: Optional[str] = Field(default=None, max_length=50)
-    future_my: Optional[str] = Field(default=None, max_length=50)
-    future_vy: Optional[str] = Field(default=None, max_length=50)
-    future_oni: Optional[str] = Field(default=None, max_length=50)
-    imperative_singular: Optional[str] = Field(default=None, max_length=50)
-    imperative_plural: Optional[str] = Field(default=None, max_length=50)
+    stress_pattern: Optional[str] = Field(default=None, max_length=50)
+    imperfective: Optional[Dict[str, Any]] = None
+    perfective: Optional[Dict[str, Any]] = None
+
+    class Config:
+        populate_by_name = True
 
 
 class VerbResponse(VerbBase):
@@ -79,53 +96,7 @@ class VerbResponse(VerbBase):
 
     class Config:
         from_attributes = True
-
-
-class VerbWithConjugations(VerbResponse):
-    """Verb response with conjugations grouped by tense."""
-    present: dict[str, str]
-    past: dict[str, str]
-    future: dict[str, str]
-    imperative: dict[str, str]
-
-    @classmethod
-    def from_orm(cls, verb):
-        """Create from ORM object with grouped conjugations."""
-        data = {
-            "id": verb.id,
-            "infinitive": verb.infinitive,
-            "conjugationType": verb.conjugationType,
-            "root": verb.root,
-            "present": {
-                "ya": verb.present_ya,
-                "ty": verb.present_ty,
-                "on_ona": verb.present_on_ona,
-                "my": verb.present_my,
-                "vy": verb.present_vy,
-                "oni": verb.present_oni,
-            },
-            "past": {
-                "masculine": verb.past_masculine,
-                "feminine": verb.past_feminine,
-                "neuter": verb.past_neuter,
-                "plural": verb.past_plural,
-            },
-            "future": {
-                "ya": verb.future_ya,
-                "ty": verb.future_ty,
-                "on_ona": verb.future_on_ona,
-                "my": verb.future_my,
-                "vy": verb.future_vy,
-                "oni": verb.future_oni,
-            },
-            "imperative": {
-                "singular": verb.imperative_singular,
-                "plural": verb.imperative_plural,
-            },
-            "created_at": verb.created_at,
-            "updated_at": verb.updated_at,
-        }
-        return cls(**data)
+        populate_by_name = True
 
 
 class VerbGroupBase(BaseModel):
@@ -153,4 +124,3 @@ class VerbGroupResponse(VerbGroupBase):
 
     class Config:
         from_attributes = True
-

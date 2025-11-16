@@ -9,7 +9,6 @@ from app.crud.noun import (create_noun, delete_noun, get_noun_by_id, get_nouns,
 from app.database import get_session
 from app.models.user import User
 from app.schemas.noun import NounCreate, NounResponse, NounUpdate
-from app.schemas.traslation import Translation
 
 router = APIRouter(prefix="/api/nouns", tags=["nouns"])
 
@@ -20,24 +19,19 @@ def list_nouns(
     limit: int = Query(100, ge=1, le=100),
     noun: Optional[str] = Query(None),
     gender: Optional[str] = Query(None),
-    translation_language: Optional[str] = Query(None, alias="translation.language"),
-    translation_text: Optional[str] = Query(None, alias="translation.translation"),
+    translation_lang: Optional[str] = Query(None),
+    translation_text: Optional[str] = Query(None),
     session: Session = Depends(get_session),
 ) -> List[NounResponse]:
     """List nouns with optional filters."""
-    translation = None
-    if translation_language and translation_text:
-        translation = Translation(
-            language=translation_language,
-            translation=translation_text
-        )
     nouns = get_nouns(
         session,
         skip=skip,
         limit=limit,
         noun=noun,
         gender=gender,
-        translation=translation,
+        translation_lang=translation_lang,
+        translation_text=translation_text,
     )
     return [NounResponse.model_validate(noun) for noun in nouns]
 
@@ -102,4 +96,3 @@ def delete_noun_endpoint(
         )
 
     delete_noun(session, noun)
-

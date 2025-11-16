@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Index, Relationship, SQLModel
@@ -19,18 +19,22 @@ class NounGroupNoun(SQLModel, table=True):
 
 
 class Noun(SQLModel, table=True):
-    """Noun model for Russian nouns."""
+    """Noun model for Russian nouns with full declension support."""
 
     __tablename__ = "nouns"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    noun: str = Field(max_length=100)
-    translations: list[dict[str, str]] = Field(
+    noun: str = Field(max_length=100, unique=True, index=True)
+    gender: str = Field(max_length=10)  # masculine, feminine, neuter
+    translations: List[Dict[str, Any]] = Field(
         default_factory=list, sa_column=Column(JSON)
     )
-    singular: str = Field(max_length=100)
-    plural: str = Field(max_length=100)
-    gender: str = Field(max_length=10)  # masculine, feminine, neuter
+
+    # Store complete declension data as JSON
+    declension: Dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON)
+    )
+
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
@@ -38,10 +42,12 @@ class Noun(SQLModel, table=True):
     noun_groups: List["NounGroup"] = Relationship(
         back_populates="nouns", link_model=NounGroupNoun
     )
+
     # Indexes
     __table_args__ = (
-        Index("idx_noun_translations", "translations"),
         Index("idx_noun_noun", "noun", unique=True),
+        Index("idx_noun_translations", "translations"),
+        Index("idx_noun_gender", "gender"),
     )
 
 
@@ -61,4 +67,3 @@ class NounGroup(SQLModel, table=True):
     nouns: List["Noun"] = Relationship(
         back_populates="noun_groups", link_model=NounGroupNoun
     )
-
